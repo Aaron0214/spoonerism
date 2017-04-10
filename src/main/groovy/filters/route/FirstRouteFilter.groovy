@@ -1,5 +1,6 @@
 package filters.route
 
+import com.aaron.spoonerism.service.RuleHelper
 import com.netflix.zuul.ZuulFilter
 import com.netflix.zuul.context.Debug
 import com.netflix.zuul.context.RequestContext
@@ -40,6 +41,9 @@ class FirstRouteFilter extends ZuulFilter {
         AsyncHttpClientImpl asyncHttpClient = new AsyncHttpClientImpl();
         try {
             Request request = buildRequest(asyncHttpClient);
+            if (null == request) {
+                return;
+            }
             ListenableFuture<Response> listenableFuture = asyncHttpClient.executeRequest(request);
             Response response = listenableFuture.get();
             setResponse(response);
@@ -54,12 +58,21 @@ class FirstRouteFilter extends ZuulFilter {
 
     static Request buildRequest(AsyncHttpClientImpl asyncHttpClient) {
         HttpServletRequest servletRequest = RequestContext.getCurrentContext().getRequest();
-        String url = "https://www.baidu.com/?s" + servletRequest.getRemoteHost() + servletRequest.getRequestURI() + getQueryString(servletRequest);
+        String url = buildQueryUrl(servletRequest);
+        if (StringUtils.isBlank(url)) {
+            return;
+        }
+        url += getQueryString(servletRequest);
         String method = servletRequest.getMethod();
         AsyncHttpClient.BoundRequestBuilder builder = asyncHttpClient.requestBuilder(method, url);
         Request request = builder.build();
         addHeader(request, servletRequest);
         return request;
+    }
+
+    static String buildQueryUrl(HttpServletRequest request) {
+        String url = request.getRequestURL().toString();
+        return RuleHelper.getRuleUrl(url);
     }
 
     static String getQueryString(HttpServletRequest request) {
