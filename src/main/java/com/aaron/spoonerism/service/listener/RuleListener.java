@@ -21,17 +21,21 @@ public class RuleListener implements InitializingBean {
     }
 
     @Scheduled(initialDelay = 1000, fixedDelay = 1000)
-    public void buildRule() throws Exception {
-        InputStream inputStream = RuleListener.class.getResourceAsStream(RULE_PATH);
-        String rules = IOUtils.toString(inputStream);
-        String[] ruleList = rules.split("\\n");
-        for (String item : ruleList) {
-            InputStream rule = RuleListener.class.getResourceAsStream(RULE_PATH + "/" + item);
-            String ruleStr = IOUtils.toString(rule);
-            String[] temp = ruleStr.split("\\n");
-            for (String value : temp) {
-                RuleHelper.registerRule(value.split("->")[0].trim(), value.split("->")[1].trim());
+    public void buildRule() {
+        try{
+            InputStream inputStream = this.getClass().getResourceAsStream(RULE_PATH);
+            String rules = IOUtils.toString(inputStream);
+            String[] ruleList = rules.split("\\n");
+            for (String item : ruleList) {
+                InputStream rule = this.getClass().getResourceAsStream(RULE_PATH + "/" + item);
+                String ruleStr = IOUtils.toString(rule);
+                String[] temp = ruleStr.split("\\n");
+                for (String value : temp) {
+                    RuleHelper.registerRule(value.split("->")[0].trim(), value.split("->")[1].trim());
+                }
             }
+        }catch (Exception e) {
+
         }
     }
 }

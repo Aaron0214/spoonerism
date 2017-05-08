@@ -1,5 +1,6 @@
 package filters.route
 
+import com.aaron.spoonerism.client.AsyncHttpClientImpl
 import com.aaron.spoonerism.service.RuleHelper
 import com.netflix.zuul.ZuulFilter
 import com.netflix.zuul.context.Debug
@@ -7,10 +8,10 @@ import com.netflix.zuul.context.RequestContext
 import com.netflix.zuul.util.HTTPRequestUtils
 import com.ning.http.client.AsyncHttpClient
 import com.ning.http.client.ListenableFuture
+import com.ning.http.client.Param
 import com.ning.http.client.Request
 import com.ning.http.client.Response
 import org.apache.commons.lang.StringUtils
-import com.aaron.spoonerism.client.AsyncHttpClientImpl
 
 import javax.servlet.http.HttpServletRequest
 
@@ -66,13 +67,19 @@ class FirstRouteFilter extends ZuulFilter {
         String method = servletRequest.getMethod();
         AsyncHttpClient.BoundRequestBuilder builder = asyncHttpClient.requestBuilder(method, url);
         Request request = builder.build();
+        addBody(request, servletRequest);
         addHeader(request, servletRequest);
         return request;
     }
 
     static String buildQueryUrl(HttpServletRequest request) {
         String url = request.getRequestURL().toString();
-        return RuleHelper.getRuleUrl(url);
+        String newUrl = RuleHelper.getRuleUrl(url);
+        if (StringUtils.isBlank(newUrl)) {
+            url = url.replace(request.getRequestURI(), "");
+            newUrl = RuleHelper.getRuleUrl(url) + request.getRequestURI();
+        }
+        return newUrl;
     }
 
     static String getQueryString(HttpServletRequest request) {
@@ -113,6 +120,31 @@ class FirstRouteFilter extends ZuulFilter {
                 }
                 request.headers.add(header, servletRequest.getHeader(header));
             }
+        }
+    }
+
+    static void addBody(Request request, HttpServletRequest servletRequest) {
+        String method = servletRequest.getMethod();
+        switch (method.toLowerCase()) {
+            case "post":
+                request.streamData = servletRequest.getInputStream();
+                List<Param> paramList = new ArrayList<>();
+                while (servletRequest.getParameterNames().hasMoreElements()) {
+                    String name = servletRequest.getParameterNames().nextElement();
+                    servletRequest.getParameterMap().get(name)[0]
+                    Param param = new Param(name, servletRequest.getParameterMap().get(name)[0]);
+                    if (paramList.contains(param)) {
+                        Integer index = paramList.indexOf(param);
+                        paramList.remove(index);
+                        paramList.add(index, param);
+                    } else {
+                        paramList.add(param);
+                    }
+                }
+                request.formParams = paramList;
+                break;
+            default:
+                return;
         }
     }
 
